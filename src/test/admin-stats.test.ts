@@ -28,6 +28,12 @@ describe("admin dashboard totals", () => {
 
 import { parseApiBalances } from "@/lib/admin-stats";
 describe("Slotegrator API balance", () => {
+  it("reads nested API provider limits without mixing currencies", () => {
+    const r = parseApiBalances({ data: { providers: [{ provider: "One", currency: "USD", balance: "25.50" }, { provider: "Two", currency: "BDT", balance: 75 }] } });
+    expect(r.rows.map((v) => v.provider)).toEqual(["One", "Two"]);
+    expect(r.totals.USD?.balance).toBe(25.5);
+    expect(r.totals.BDT?.balance).toBe(75);
+  });
   it("adds up each provider's balance per currency", () => {
     const r = parseApiBalances([
       { provider: "Pragmatic", currency: "BDT", balance: "1000.50", limit: 5000 },
