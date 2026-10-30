@@ -16,7 +16,7 @@ export async function collectCatalog(loadPage: (page: number) => Promise<Catalog
   return [...new Map(pages.flat().map((g) => [g.uuid, g])).values()];
 }
 
-export function selectCatalog(games: SlotegratorGame[], input: { page: number; search?: string; provider?: string }) {
+export function selectCatalog(games: SlotegratorGame[], input: { page: number; search?: string | undefined; provider?: string | undefined }) {
   const query = (input.search ?? "").trim().toLowerCase();
   const filtered = games.filter((g) => (!input.provider || g.provider === input.provider) && g.name.toLowerCase().includes(query));
   const pageCount = Math.max(1, Math.ceil(filtered.length / 60));

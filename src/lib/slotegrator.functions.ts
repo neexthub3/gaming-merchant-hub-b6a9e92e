@@ -14,7 +14,7 @@ export const getPublicConfig = createServerFn({ method: "GET" }).handler(async (
 });
 
 export const listGames = createServerFn({ method: "GET" })
-  .inputValidator((input: { page: number; search?: string; provider?: string }) => z.object({ page: z.number().int().min(1).max(10000), search: z.string().max(200).optional(), provider: z.string().max(200).optional() }).parse(input))
+  .inputValidator((input: { page: number; search?: string | undefined; provider?: string | undefined }) => z.object({ page: z.number().int().min(1).max(10000), search: z.string().max(200).optional(), provider: z.string().max(200).optional() }).parse(input))
   .handler(async ({ data }) => {
     try {
       const cfg = slotegratorConfig();
