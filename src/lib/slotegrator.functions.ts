@@ -31,45 +31,26 @@ const launchSchema = z.object({ gameUuid: z.string().min(1).max(100), returnUrl:
 export const initDemo = createServerFn({ method: "POST" })
   .inputValidator((input: z.infer<typeof launchSchema>) => launchSchema.parse(input))
   .handler(async ({ data }) => {
-    const res = await slotegratorRequest("POST", "/games/init-demo", {
-      game_uuid: data.gameUuid,
-      device: data.mobile ? "mobile" : "desktop",
-      return_url: data.returnUrl,
-      language: "en",
-    });
-    const url = (res.body as { url?: string })?.url;
-    if (!res.ok || !url) {
-      console.error("Slotegrator init-demo failed", res.status, res.body);
-      return { ok: false as const, url: null, error: detail(`POST /games/init-demo failed (game ${data.gameUuid})`, res) };
-    }
-    return { ok: true as const, url, error: null };
+    const { launchGame } = await import("./game-launch.server");
+    return launchGame(data, false);
   });
 
 export const initReal = createServerFn({ method: "POST" })
   .inputValidator((input: z.infer<typeof launchSchema>) => launchSchema.parse(input))
   .handler(async ({ data }) => {
+    const { launchGame } = await import("./game-launch.server");
+    return launchGame(data, true);
+  });
+
+export const gameDiagnostics = createServerFn({ method: "GET" })
+  .inputValidator((input: { sessionId: string }) => z.object({ sessionId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
     const { currentUser } = await import("./auth.server");
-    const cfg = slotegratorConfig();
-    if (!cfg) return { ok: false as const, url: null, error: "Slotegrator settings missing in .env" };
     const user = await currentUser();
-    if (!user) return { ok: false as const, url: null, error: "Not signed in. Please sign in again." };
-    if (user.balance <= 0) return { ok: false as const, url: null, error: "no_balance" };
-    const res = await slotegratorRequest("POST", "/games/init", {
-      game_uuid: data.gameUuid,
-      player_id: user.id,
-      player_name: user.username,
-      currency: cfg.currency,
-      session_id: crypto.randomUUID(),
-      device: data.mobile ? "mobile" : "desktop",
-      return_url: data.returnUrl,
-      language: "en",
-    });
-    const url = (res.body as { url?: string })?.url;
-    if (!res.ok || !url) {
-      console.error("Slotegrator init failed", res.status, res.body);
-      return { ok: false as const, url: null, error: detail(`POST /games/init failed (game ${data.gameUuid}, currency ${cfg.currency})`, res) };
-    }
-    return { ok: true as const, url, error: null };
+    if (!user) return [];
+    const { readCallbackLog } = await import("./filedb.server");
+    const { ownCallbackEntries } = await import("./game-diagnostics");
+    return ownCallbackEntries(await readCallbackLog(1000), user.id, data.sessionId);
   });
 
 // ---------- Accounts ----------

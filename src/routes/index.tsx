@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Play, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Play, Search, X, FileText } from "lucide-react";
 
 import heroImg from "@/assets/hero.jpg";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { initDemo, initReal, listGames } from "@/lib/slotegrator.functions";
 import { usePlayer } from "@/hooks/use-player";
 import { ErrorDetails, errorText } from "@/components/ErrorDetails";
 import type { SlotegratorGame } from "@/lib/slotegrator-shared";
+import { GameDiagnostics } from "@/components/GameDiagnostics";
+import { redactDiagnostic, type GameDiagnostic } from "@/lib/game-diagnostics";
 
 const gamesQuery = (page: number, search: string, provider: string | null) =>
   queryOptions({
@@ -42,11 +44,19 @@ function Index() {
   const [providerSearch, setProviderSearch] = useState("");
   const [provider, setProvider] = useState<string | null>(null);
   const [playing, setPlaying] = useState<{ name: string; url: string } | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logSession, setLogSession] = useState("");
+  const [logName, setLogName] = useState("");
+  const [logEntries, setLogEntries] = useState<GameDiagnostic[]>([]);
   const [launching, setLaunching] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<{ title: string; detail: string } | null>(null);
   const startDemo = useServerFn(initDemo);
   const startReal = useServerFn(initReal);
   const { data: player } = usePlayer();
+  function beginLogs(name: string) { setLogName(name); setLogSession(""); setLogEntries([]); }
+  function browserLog(action: string, response: unknown, ok = false) {
+    setLogEntries((entries) => [...entries, { id: crypto.randomUUID(), time: new Date().toISOString(), kind: "browser", action, ok, status: 0, ms: 0, request: {}, response: redactDiagnostic(response) }].slice(-200));
+  }
 
   async function playReal(game: SlotegratorGame) {
     if (!player) {
@@ -54,16 +64,20 @@ function Index() {
       return;
     }
     setLaunching(game.uuid);
+    beginLogs(game.name);
     setLaunchError(null);
     try {
       const res = await startReal({
         data: { gameUuid: game.uuid, returnUrl: window.location.href, mobile: window.innerWidth < 768 },
       });
+      setLogSession(res.sessionId);
+      setLogEntries([res.diagnostic]);
       if (res.ok && res.url) setPlaying({ name: game.name, url: res.url });
       else if (res.error === "no_balance")
         setLaunchError({ title: "আপনার ব্যালেন্স নেই", detail: `Balance is 0. Ask the administrator to add balance.\nGame: ${game.name} (${game.uuid})` });
       else setLaunchError({ title: `"${game.name}" আসল টাকায় চালু করা যায়নি`, detail: res.error ?? "Unknown error" });
     } catch (e) {
+      browserLog("Launch request failed", errorText(e));
       setLaunchError({ title: `"${game.name}" আসল টাকায় চালু করা যায়নি`, detail: errorText(e) });
     } finally {
       setLaunching(null);
@@ -81,6 +95,7 @@ function Index() {
 
   async function play(game: SlotegratorGame) {
     setLaunching(game.uuid);
+    beginLogs(game.name);
     setLaunchError(null);
     try {
       const res = await startDemo({
@@ -90,9 +105,12 @@ function Index() {
           mobile: window.innerWidth < 768,
         },
       });
+      setLogSession(res.sessionId);
+      setLogEntries([res.diagnostic]);
       if (res.ok && res.url) setPlaying({ name: game.name, url: res.url });
       else setLaunchError({ title: `"${game.name}" ডেমো চালু করা যায়নি`, detail: res.error ?? "Unknown error" });
     } catch (e) {
+      browserLog("Demo request failed", errorText(e));
       setLaunchError({ title: `"${game.name}" ডেমো চালু করা যায়নি`, detail: errorText(e) });
     } finally {
       setLaunching(null);
@@ -163,6 +181,7 @@ function Index() {
         {launchError && (
           <div className="mb-6">
             <ErrorDetails title={launchError.title} detail={launchError.detail} onClose={() => setLaunchError(null)} />
+            <Button className="mt-2" variant="outline" size="sm" onClick={() => setLogOpen(true)}><FileText />Game diagnostics</Button>
           </div>
         )}
 
@@ -223,10 +242,13 @@ function Index() {
       {playing && (
         <div className="fixed inset-0 z-50 flex flex-col bg-overlay backdrop-blur-sm">
           <div className="flex items-center justify-between border-b bg-card px-4 py-3">
-            <p className="font-display font-semibold text-gold">{playing.name}</p>
+            <p className="min-w-0 truncate font-display font-semibold text-gold">{playing.name}</p>
+            <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="icon" title="Game diagnostics" onClick={() => setLogOpen(true)} aria-label="Open game diagnostics"><FileText /></Button>
             <Button variant="ghost" size="icon" onClick={() => setPlaying(null)} aria-label="বন্ধ করুন">
               <X />
             </Button>
+            </div>
           </div>
           <iframe
             src={playing.url}
@@ -234,9 +256,12 @@ function Index() {
             className="h-full w-full flex-1 border-0"
             allow="autoplay; fullscreen"
             allowFullScreen
+            onLoad={() => browserLog("Game frame loaded", { event: "load" }, true)}
+            onError={() => browserLog("Game frame error", { event: "error" })}
           />
         </div>
       )}
+      <GameDiagnostics open={logOpen} onOpenChange={setLogOpen} sessionId={logSession} name={logName} entries={logEntries} />
     </div>
   );
 }
