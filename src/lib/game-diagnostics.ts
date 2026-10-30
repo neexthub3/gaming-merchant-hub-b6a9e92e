@@ -1,15 +1,16 @@
+export type DiagnosticValue = null | string | number | boolean | DiagnosticValue[] | { [key: string]: DiagnosticValue };
 export type GameDiagnostic = {
   id: string; time: string; kind: "launch" | "callback" | "browser";
   action: string; ok: boolean; status: number; ms: number;
-  request: unknown; response: unknown; reason?: string | undefined;
+  request: DiagnosticValue; response: DiagnosticValue; reason?: string | undefined;
 };
 
 /** Diagnostic exports must never contain credentials or game access URLs. */
-export function redactDiagnostic(value: unknown): unknown {
+export function redactDiagnostic(value: unknown): DiagnosticValue {
   if (Array.isArray(value)) return value.map(redactDiagnostic);
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, /secret|password|passhash|salt|authorization|cookie|token|signature|x-sign|merchant.key|session_id|url|rawbody|signexpected|signreceived|signstring/i.test(key) ? "[redacted]" : redactDiagnostic(v)]));
   if (typeof value === "string") return value.replace(/https?:\/\/[^\s"<>]+/g, "[URL redacted]").replace(/Bearer\s+\S+/gi, "[redacted]");
-  return value;
+  return typeof value === "number" || typeof value === "boolean" ? value : null;
 }
 
 export function ownCallbackEntries(entries: Record<string, unknown>[], playerId: string, sessionId: string): GameDiagnostic[] {

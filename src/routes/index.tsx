@@ -55,7 +55,8 @@ function Index() {
   const { data: player } = usePlayer();
   function beginLogs(name: string) { setLogName(name); setLogSession(""); setLogEntries([]); }
   function browserLog(action: string, response: unknown, ok = false) {
-    setLogEntries((entries) => [...entries, { id: crypto.randomUUID(), time: new Date().toISOString(), kind: "browser", action, ok, status: 0, ms: 0, request: {}, response: redactDiagnostic(response) }].slice(-200));
+    const entry: GameDiagnostic = { id: crypto.randomUUID(), time: new Date().toISOString(), kind: "browser", action, ok, status: 0, ms: 0, request: {}, response: redactDiagnostic(response) };
+    setLogEntries((entries) => [...entries, entry].slice(-200));
   }
 
   async function playReal(game: SlotegratorGame) {
