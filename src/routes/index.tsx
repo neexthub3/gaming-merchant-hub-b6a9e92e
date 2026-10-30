@@ -93,6 +93,13 @@ function Index() {
   const games = data?.games ?? [];
   const providers = (data?.providers ?? []).filter((p) => p.toLowerCase().includes(providerSearch.trim().toLowerCase()));
   const filtered = games;
+  useEffect(() => {
+    if (data && !data.ok) {
+      setLogName("Game catalog");
+      const entry: GameDiagnostic = { id: "catalog-error", time: new Date().toISOString(), kind: "browser", action: "GET /games", ok: false, status: 0, ms: 0, request: { page, search: appliedSearch, provider }, response: redactDiagnostic(data.error) };
+      setLogEntries((entries) => [...entries.filter((e) => e.id !== entry.id), entry]);
+    }
+  }, [data, page, appliedSearch, provider]);
 
   async function play(game: SlotegratorGame) {
     setLaunching(game.uuid);
@@ -153,6 +160,7 @@ function Index() {
               </span>
             )}
           </h2>
+          <Button variant="outline" size="icon" title="Game diagnostics" aria-label="Open game diagnostics" onClick={() => setLogOpen(true)}><FileText /></Button>
           <div className="relative md:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
