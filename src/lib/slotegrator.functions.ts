@@ -4,6 +4,7 @@ import type { SlotegratorGame } from "./slotegrator-shared";
 import { safeEqual } from "./slotegrator-shared";
 import { slotegratorConfig, slotegratorRequest } from "./slotegrator-core";
 import { balanceAdjustmentSchema, signedAdjustment } from "./admin-validation";
+import { selectCatalog } from "./game-catalog";
 
 const detail = (label: string, res: { status: number; body: unknown }) =>
   `${label}\nHTTP status: ${res.status}${res.status === 406 || res.status === 403 ? " (Slotegrator is blocking this server IP — ask them to whitelist it)" : res.status === 0 ? " (network error or missing settings)" : ""}\nResponse: ${typeof res.body === "string" ? res.body : JSON.stringify(res.body, null, 2)}`.slice(0, 4000);
@@ -13,28 +14,16 @@ export const getPublicConfig = createServerFn({ method: "GET" }).handler(async (
 });
 
 export const listGames = createServerFn({ method: "GET" })
-  .inputValidator((input: { page: number }) => z.object({ page: z.number().int().min(1).max(10000) }).parse(input))
+  .inputValidator((input: { page: number; search?: string; provider?: string }) => z.object({ page: z.number().int().min(1).max(10000), search: z.string().max(200).optional(), provider: z.string().max(200).optional() }).parse(input))
   .handler(async ({ data }) => {
-    if (!slotegratorConfig()) {
-      return { ok: false as const, error: "Slotegrator settings missing: SLOTEGRATOR_MERCHANT_ID, SLOTEGRATOR_MERCHANT_KEY, SLOTEGRATOR_API_URL in .env", games: [], pageCount: 0, total: 0 };
+    try {
+      const cfg = slotegratorConfig();
+      if (!cfg) throw new Error("Slotegrator settings missing: configure SLOTEGRATOR_MERCHANT_ID, SLOTEGRATOR_MERCHANT_KEY, SLOTEGRATOR_API_URL on the server");
+      const { loadCatalog } = await import("./game-catalog.server");
+      return { ok: true as const, error: null, ...selectCatalog(await loadCatalog(`${cfg.apiUrl}:${cfg.merchantId}`), data) };
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message, games: [], providers: [], page: 1, pageCount: 0, total: 0, catalogTotal: 0 };
     }
-    const res = await slotegratorRequest("GET", "/games", { page: String(data.page) });
-    if (!res.ok) {
-      console.error("Slotegrator /games failed", res.status, res.body);
-      return { ok: false as const, error: detail("GET /games failed", res), games: [], pageCount: 0, total: 0 };
-    }
-    const body = res.body as { items?: SlotegratorGame[]; _meta?: { pageCount?: number; totalCount?: number } };
-    if (body.items?.length) {
-      const { rememberGames } = await import("./filedb.server");
-      await rememberGames(body.items);
-    }
-    return {
-      ok: true as const,
-      error: null,
-      games: body.items ?? [],
-      pageCount: body._meta?.pageCount ?? Number(res.headers?.get("X-Pagination-Page-Count") ?? 1),
-      total: body._meta?.totalCount ?? Number(res.headers?.get("X-Pagination-Total-Count") ?? 0),
-    };
   });
 
 const launchSchema = z.object({ gameUuid: z.string().min(1).max(100), returnUrl: z.string().url().max(500), mobile: z.boolean() });
@@ -225,7 +214,9 @@ export const adminCallbackTest = createServerFn({ method: "POST" }).handler(asyn
       body: new URLSearchParams(params).toString(),
     });
     const text = await res.text();
-    const ok = res.ok && !text.includes("error_code");
+    let response: { balance?: number; error_code?: string } = {};
+    try { response = JSON.parse(text); } catch { /* Report non-JSON replies as failures. */ }
+    const ok = res.ok && !response.error_code && typeof response.balance === "number" && response.balance === admin.balance;
     return { ok, detail: `POST ${url}\nHTTP ${res.status}\nResponse: ${text.slice(0, 2000)}\nYour balance on file: ${admin.balance}` };
   } catch (e) {
     return { ok: false, detail: `POST ${url}\nNetwork error: ${(e as Error).message}\nThe server could not reach its own public address. Slotegrator will not reach it either.` };

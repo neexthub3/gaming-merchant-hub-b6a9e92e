@@ -38,6 +38,7 @@ export async function slotegratorRequest(
       method === "GET" ? `${cfg.apiUrl}${path}${qs ? `?${qs}` : ""}` : `${cfg.apiUrl}${path}`,
       {
         method,
+        signal: AbortSignal.timeout(20_000),
         headers: {
           ...headers,
           Accept: "application/json",
