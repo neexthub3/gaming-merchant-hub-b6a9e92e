@@ -32,10 +32,13 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
           "";
         let body: Record<string, unknown> = {};
         const meta: Record<string, unknown> = {};
+        let verified = false;
 
         const reply = async (out: Record<string, unknown>, reason?: string) => {
           const action = String(body["action"] ?? "");
           const entry = {
+            id: crypto.randomUUID(),
+            verified,
             action,
             player_id: body["player_id"] ?? null,
             ok: !out["error_code"],
@@ -88,6 +91,7 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
         if (!safeEqual(sign, expected)) {
           return fail("INTERNAL_ERROR", "Invalid signature", "X-Sign does not match — SLOTEGRATOR_MERCHANT_KEY in .env is probably wrong or outdated");
         }
+        verified = true;
 
         const wallet = await import("@/lib/wallet.server");
         const action = String(body["action"] ?? "");

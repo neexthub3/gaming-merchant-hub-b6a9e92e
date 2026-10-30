@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Project rules
+- Game diagnostics return only verified callbacks for the signed-in player's exact launch session; redact credentials, session tokens, and game URLs before exports to keep troubleshooting safe.
 - Load and cache the complete paginated Slotegrator catalog server-side before filtering; global search and provider tabs must never depend on the visible API page.
 - Slotegrator calls are signed (HMAC-SHA1 over sorted params + auth headers) inside `createServerFn` handlers in `src/lib/slotegrator.functions.ts`; the merchant key must never reach the browser.
 - Signing helpers use Web Crypto (`crypto.subtle`), not Node `crypto`, to stay runtime-portable.
