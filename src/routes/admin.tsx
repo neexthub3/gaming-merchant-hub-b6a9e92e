@@ -362,7 +362,7 @@ function Dashboard() {
           ? cards.map((c) => (
               <div key={c.label} className="rounded-xl border bg-card p-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">{c.icon}{c.label}</div>
-                <div className={`mt-2 text-lg font-semibold tabular-nums md:text-xl ${c.tone === "good" ? "text-primary" : c.tone === "bad" ? "text-destructive" : ""}`}>{c.value}</div>
+                <div className={`mt-2 break-words text-lg font-semibold tabular-nums md:text-xl ${c.tone === "good" ? "text-primary" : c.tone === "bad" ? "text-destructive" : ""}`}>{c.value}</div>
               </div>
             ))
           : Array.from({ length: 8 }, (_, i) => <div key={i} className="h-20 animate-pulse rounded-xl border bg-card" />)}
@@ -457,7 +457,7 @@ function ApiBalance() {
               Object.entries(vals).map(([k, v]) => (
                 <div key={`${cur}-${k}`} className="rounded-xl bg-primary/10 p-4">
                   <div className="text-xs text-muted-foreground">Total {label(k).toLowerCase()}</div>
-                  <div className="mt-1 text-xl font-semibold tabular-nums text-gold">{num(v, cur)}</div>
+                  <div className="mt-1 break-words text-xl font-semibold tabular-nums text-gold">{num(v, cur)}</div>
                 </div>
               )),
             )}
