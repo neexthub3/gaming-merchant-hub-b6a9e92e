@@ -1,4 +1,7 @@
 # Tasks
+- [x] Fetch the full API game catalog for name search and all-provider tabs/filtering (later-page search and provider filtering tested).
+- [x] Refresh API merchant limits every 30 seconds and add provider search; live API values blocked by placeholder settings.
+- [x] Verify funded-player signed callbacks and UI balance readback; reject missing wallet balances instead of silently replying 0, detect currency mismatch, and validate callback test balance equality.
 - [x] Move players, logins, balances and game transactions to a JSON file on the server (data/db.json, DATA_DIR override).
 - [x] Show detailed, copyable errors on screen (games, sign-in, admin).
 - [x] Slotegrator wallet callback and health check use the file database.

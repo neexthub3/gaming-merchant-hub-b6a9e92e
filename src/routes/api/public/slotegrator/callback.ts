@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
         const nonce = request.headers.get("X-Nonce") ?? "";
         const sign = (request.headers.get("X-Sign") ?? "").toLowerCase();
         if (!safeEqual(merchantId, cfg.merchantId)) {
-          return fail("INTERNAL_ERROR", "Wrong merchant", `X-Merchant-Id "${merchantId}" does not match SLOTEGRATOR_MERCHANT_ID in .env`);
+          return fail("INTERNAL_ERROR", "Wrong merchant", "X-Merchant-Id does not match the server configuration");
         }
         const drift = Math.round(Date.now() / 1000 - Number(timestamp));
         meta["clockDriftSeconds"] = drift;
@@ -86,9 +86,6 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
         });
         const expected = await hmacSha1Hex(cfg.merchantKey, signString);
         if (!safeEqual(sign, expected)) {
-          meta["signReceived"] = sign;
-          meta["signExpected"] = expected;
-          meta["signString"] = signString.slice(0, 2000);
           return fail("INTERNAL_ERROR", "Invalid signature", "X-Sign does not match — SLOTEGRATOR_MERCHANT_KEY in .env is probably wrong or outdated");
         }
 
@@ -98,6 +95,7 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
         try {
           const pid = playerId.safeParse(body["player_id"]);
           if (!pid.success) return fail("INTERNAL_ERROR", "Player not found", `player_id "${String(body["player_id"])}" is not a valid player id`);
+          if (body["currency"] && body["currency"] !== cfg.currency) return fail("INTERNAL_ERROR", "Currency mismatch", `Callback currency ${String(body["currency"])} does not match configured currency ${cfg.currency}; align the merchant account and SLOTEGRATOR_CURRENCY`);
 
           let result: Record<string, unknown> | null = null;
           if (action === "balance") {
@@ -150,7 +148,10 @@ export const Route = createFileRoute("/api/public/slotegrator/callback")({
             const { dbFile } = await import("@/lib/filedb.server");
             return fail("INTERNAL_ERROR", String(result["error"]), `${String(result["error"])} — looked in ${dbFile()}`);
           }
-          const out: Record<string, unknown> = { balance: Number(Number(result?.["balance"] ?? 0).toFixed(2)) };
+          if (typeof result?.["balance"] !== "number" || !Number.isFinite(result["balance"])) {
+            return fail("INTERNAL_ERROR", "Wallet balance unavailable", "Wallet returned no valid balance; refused to replace it with 0");
+          }
+          const out: Record<string, unknown> = { balance: Number(result["balance"].toFixed(2)) };
           if (result?.["transaction_id"]) out["transaction_id"] = result["transaction_id"];
           if (result?.["rollback_transactions"]) out["rollback_transactions"] = result["rollback_transactions"];
           return reply(out);

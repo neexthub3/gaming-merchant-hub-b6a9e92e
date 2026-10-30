@@ -75,14 +75,18 @@ export function parseApiBalances(body: unknown) {
   if (Array.isArray(body)) list = body as Record<string, unknown>[];
   else if (body && typeof body === "object") {
     const o = body as Record<string, unknown>;
-    const inner = [o["items"], o["data"], o["limits"]].find(Array.isArray) as Record<string, unknown>[] | undefined;
+    for (const key of ["data", "limits", "providers"]) {
+      const nested = o[key];
+      if (nested && typeof nested === "object" && !Array.isArray(nested)) return parseApiBalances(nested);
+    }
+    const inner = [o["items"], o["data"], o["limits"], o["providers"]].find(Array.isArray) as Record<string, unknown>[] | undefined;
     if (inner) list = inner;
     else if (Object.values(o).every((v) => v && typeof v === "object" && !Array.isArray(v))) {
       list = Object.entries(o).map(([k, v]) => ({ provider: k, ...(v as Record<string, unknown>) }));
     } else list = [o];
   }
   const rows: ApiBalanceRow[] = list
-    .filter((r) => r && typeof r === "object")
+    .filter((r) => r && typeof r === "object" && !Array.isArray(r))
     .map((r) => {
       const nameKey = NAME_KEYS.find((k) => typeof r[k] === "string");
       const curKey = CURRENCY_KEYS.find((k) => typeof r[k] === "string");

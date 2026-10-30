@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Project rules
+- Load and cache the complete paginated Slotegrator catalog server-side before filtering; global search and provider tabs must never depend on the visible API page.
 - Slotegrator calls are signed (HMAC-SHA1 over sorted params + auth headers) inside `createServerFn` handlers in `src/lib/slotegrator.functions.ts`; the merchant key must never reach the browser.
 - Signing helpers use Web Crypto (`crypto.subtle`), not Node `crypto`, to stay runtime-portable.
 - All app data (players, sessions, balances, transactions) lives in a JSON file (`src/lib/filedb.server.ts`, `$DATA_DIR/db.json`, default `<cwd>/data/db.json`), not Lovable Cloud — the app is self-hosted on a VPS with Node/Bun; it needs a filesystem, so it does not run on Workers hosting.
