@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Play, Search, X } from "lucide-react";
 
 import heroImg from "@/assets/hero.jpg";
@@ -13,10 +13,10 @@ import { usePlayer } from "@/hooks/use-player";
 import { ErrorDetails, errorText } from "@/components/ErrorDetails";
 import type { SlotegratorGame } from "@/lib/slotegrator-shared";
 
-const gamesQuery = (page: number) =>
+const gamesQuery = (page: number, search: string, provider: string | null) =>
   queryOptions({
-    queryKey: ["games", page],
-    queryFn: () => listGames({ data: { page } }),
+    queryKey: ["games", page, search, provider],
+    queryFn: () => listGames({ data: { page, search, provider: provider ?? undefined } }),
     staleTime: 5 * 60_000,
   });
 
@@ -38,6 +38,8 @@ function Index() {
   const [authOpen, setAuthOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [providerSearch, setProviderSearch] = useState("");
   const [provider, setProvider] = useState<string | null>(null);
   const [playing, setPlaying] = useState<{ name: string; url: string } | null>(null);
   const [launching, setLaunching] = useState<string | null>(null);
@@ -68,18 +70,14 @@ function Index() {
     }
   }
 
-  const { data, isLoading, error: gamesError } = useQuery(gamesQuery(page));
+  useEffect(() => {
+    const timer = setTimeout(() => { setAppliedSearch(search); setPage(1); }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const { data, isLoading, error: gamesError } = useQuery(gamesQuery(page, appliedSearch, provider));
   const games = data?.games ?? [];
-
-  const providers = useMemo(
-    () => Array.from(new Set(games.map((g) => g.provider).filter(Boolean) as string[])).sort(),
-    [games],
-  );
-  const filtered = games.filter(
-    (g) =>
-      (!provider || g.provider === provider) &&
-      g.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const providers = (data?.providers ?? []).filter((p) => p.toLowerCase().includes(providerSearch.trim().toLowerCase()));
+  const filtered = games;
 
   async function play(game: SlotegratorGame) {
     setLaunching(game.uuid);
@@ -147,18 +145,20 @@ function Index() {
           </div>
         </div>
 
-        {providers.length > 1 && (
-          <div className="mb-8 flex flex-wrap gap-2">
-            <Chip active={!provider} onClick={() => setProvider(null)}>
-              সব
+        <div className="mb-8 space-y-3">
+          <Input aria-label="Search providers" placeholder="প্রোভাইডার খুঁজুন…" value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} className="max-w-sm" />
+          <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto" role="tablist" aria-label="Game providers">
+            <Chip active={!provider} onClick={() => { setProvider(null); setPage(1); }}>
+              সব প্রোভাইডার
             </Chip>
             {providers.map((p) => (
-              <Chip key={p} active={provider === p} onClick={() => setProvider(p)}>
+              <Chip key={p} active={provider === p} onClick={() => { setProvider(p); setPage(1); }}>
                 {p}
               </Chip>
             ))}
           </div>
-        )}
+          {providerSearch && providers.length === 0 && <p className="text-sm text-muted-foreground">কোনো প্রোভাইডার পাওয়া যায়নি।</p>}
+        </div>
 
         {launchError && (
           <div className="mb-6">
@@ -205,7 +205,7 @@ function Index() {
               <ChevronLeft />
             </Button>
             <span className="text-sm text-muted-foreground">
-              পাতা {page.toLocaleString("bn-BD")} / {data.pageCount.toLocaleString("bn-BD")}
+              পাতা {(data.page ?? page).toLocaleString("bn-BD")} / {data.pageCount.toLocaleString("bn-BD")}
             </span>
             <Button
               variant="outline"
@@ -259,16 +259,15 @@ function Chip({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
+      role="tab"
+      aria-selected={active}
+      variant={active ? "gold" : "outline"}
       onClick={onClick}
-      className={
-        active
-          ? "rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-primary-foreground"
-          : "rounded-full border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      }
+      size="sm"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

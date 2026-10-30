@@ -418,18 +418,19 @@ function Dashboard() {
 
 function ApiBalance() {
   const limits = useServerFn(adminLimits);
-  const { data, error, refetch, isFetching, dataUpdatedAt } = useQuery({ queryKey: ["admin-limits"], queryFn: () => limits(), refetchInterval: 60_000 });
+  const { data, error, refetch, isFetching, dataUpdatedAt } = useQuery({ queryKey: ["admin-limits"], queryFn: () => limits(), refetchInterval: 30_000 });
+  const [providerSearch, setProviderSearch] = useState("");
   const [showRaw, setShowRaw] = useState(false);
   const parsed = data?.ok ? parseApiBalances(JSON.parse(data.json)) : null;
   const label = (k: string) => k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
   const num = (n: number, cur: string) => `${n.toLocaleString("bn-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur ? ` ${cur}` : ""}`;
   return (
-    <section className="space-y-4 rounded-2xl border border-primary/40 bg-card p-5">
+    <section className="space-y-4 border-b pb-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 font-display text-2xl text-gold"><Landmark className="size-5" /> Slotegrator API balance</h2>
           <p className="text-xs text-muted-foreground">
-            Live from Slotegrator (GET /limits){dataUpdatedAt ? ` · updated ${new Date(dataUpdatedAt).toLocaleTimeString()}` : ""}. Works only from your whitelisted server.
+            GET /limits · every 30 seconds{dataUpdatedAt ? ` · checked ${new Date(dataUpdatedAt).toLocaleTimeString()}` : ""}{isFetching ? " · checking…" : ""}
           </p>
         </div>
         <div className="flex gap-2">
@@ -461,8 +462,9 @@ function ApiBalance() {
               )),
             )}
           </div>
+          <Input aria-label="Search API providers" placeholder="Search provider" value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} className="max-w-sm" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {parsed.rows.map((r, i) => (
+            {parsed.rows.filter((r) => r.provider.toLowerCase().includes(providerSearch.toLowerCase().trim())).map((r, i) => (
               <div key={`${r.provider}-${i}`} className="rounded-xl border p-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{r.provider}</span>
