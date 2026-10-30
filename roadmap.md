@@ -1,4 +1,7 @@
 # Tasks
+- [ ] Fetch the full API game catalog for name search and all-provider tabs/filtering.
+- [ ] Refresh API merchant limits automatically and show provider balances clearly.
+- [ ] Verify funded-player wallet callbacks and fix identifiable zero-balance causes; external VPS game verification requires working credentials and callback configuration.
 - [x] Move players, logins, balances and game transactions to a JSON file on the server (data/db.json, DATA_DIR override).
 - [x] Show detailed, copyable errors on screen (games, sign-in, admin).
 - [x] Slotegrator wallet callback and health check use the file database.
